@@ -2,8 +2,8 @@
 //!
 //! Matches Rufus's popup dialog for customizing Windows 10/11 installations.
 
-use egui::Window;
 use crate::core::wue::WueOptions;
+use egui::Window;
 
 pub struct WueDialog {
     pub is_open: bool,
@@ -54,7 +54,10 @@ impl WueDialog {
                 );
 
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.options.create_local_account, "Create a local account with username:");
+                    ui.checkbox(
+                        &mut self.options.create_local_account,
+                        "Create a local account with username:",
+                    );
                     if self.options.create_local_account {
                         ui.text_edit_singleline(&mut self.username);
                     }

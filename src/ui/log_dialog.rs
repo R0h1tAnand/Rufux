@@ -3,21 +3,13 @@
 //! Recreates Rufus's Log console with timestamped entries, autoscroll,
 //! clear, and save functionalities.
 
-use std::fs;
 use egui::{ScrollArea, Window};
+use std::fs;
 
+#[derive(Default)]
 pub struct LogDialog {
     pub is_open: bool,
     pub entries: Vec<String>,
-}
-
-impl Default for LogDialog {
-    fn default() -> Self {
-        Self {
-            is_open: false,
-            entries: Vec::new(),
-        }
-    }
 }
 
 impl LogDialog {

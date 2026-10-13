@@ -9,12 +9,28 @@ pub fn configure_rufus_theme(ctx: &egui::Context) {
 
     // Font sizing matching Segoe UI 9pt in Win32
     style.text_styles = [
-        (egui::TextStyle::Heading, egui::FontId::new(14.0, egui::FontFamily::Proportional)),
-        (egui::TextStyle::Body, egui::FontId::new(12.5, egui::FontFamily::Proportional)),
-        (egui::TextStyle::Monospace, egui::FontId::new(11.5, egui::FontFamily::Monospace)),
-        (egui::TextStyle::Button, egui::FontId::new(12.0, egui::FontFamily::Proportional)),
-        (egui::TextStyle::Small, egui::FontId::new(10.5, egui::FontFamily::Proportional)),
-    ].into();
+        (
+            egui::TextStyle::Heading,
+            egui::FontId::new(14.0, egui::FontFamily::Proportional),
+        ),
+        (
+            egui::TextStyle::Body,
+            egui::FontId::new(12.5, egui::FontFamily::Proportional),
+        ),
+        (
+            egui::TextStyle::Monospace,
+            egui::FontId::new(11.5, egui::FontFamily::Monospace),
+        ),
+        (
+            egui::TextStyle::Button,
+            egui::FontId::new(12.0, egui::FontFamily::Proportional),
+        ),
+        (
+            egui::TextStyle::Small,
+            egui::FontId::new(10.5, egui::FontFamily::Proportional),
+        ),
+    ]
+    .into();
 
     style.spacing.item_spacing = egui::vec2(6.0, 5.0);
     style.spacing.button_padding = egui::vec2(10.0, 4.0);
@@ -56,7 +72,11 @@ pub fn configure_rufus_theme(ctx: &egui::Context) {
 pub fn draw_section_header(ui: &mut egui::Ui, title: &str) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(title).strong().color(Color32::from_rgb(70, 160, 245)));
+        ui.label(
+            egui::RichText::new(title)
+                .strong()
+                .color(Color32::from_rgb(70, 160, 245)),
+        );
         let rect = ui.available_rect_before_wrap();
         let y = rect.center().y;
         ui.painter().line_segment(

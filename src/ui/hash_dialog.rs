@@ -2,8 +2,8 @@
 //!
 //! Recreates Rufus's Checksums dialog for computing and verifying image hashes.
 
-use egui::{Color32, Window};
 use crate::core::hasher::ImageHashes;
+use egui::{Color32, Window};
 
 #[derive(Default)]
 pub struct HashDialog {

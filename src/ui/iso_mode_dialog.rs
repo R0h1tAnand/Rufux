@@ -2,8 +2,8 @@
 //!
 //! Replicates Rufus's prompt for selecting between ISO extraction mode and raw DD mode.
 
-use egui::Window;
 use crate::core::writer::BurnMode;
+use egui::Window;
 
 pub struct IsoModeDialog {
     pub is_open: bool,
@@ -52,11 +52,7 @@ impl IsoModeDialog {
                     "Write in ISO Image mode (Recommended)",
                 );
 
-                ui.radio_value(
-                    &mut self.selected_mode,
-                    BurnMode::DdMode,
-                    "Write in DD Image mode",
-                );
+                ui.radio_value(&mut self.selected_mode, BurnMode::DdMode, "Write in DD Image mode");
 
                 ui.add_space(12.0);
                 ui.separator();
