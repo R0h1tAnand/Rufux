@@ -2,19 +2,26 @@
 <!DOCTYPE policyconfig PUBLIC
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  Installed by `install.sh`, which replaces @BINDIR@ with the real install directory.
+
+  The action only matches `rufux --worker ...`, so authorizing it never grants a general root
+  shell or the GUI as root. Authentication is requested for every operation (no auth_admin_keep),
+  because each one can erase a drive.
+-->
 <policyconfig>
   <vendor>Rufux Project</vendor>
   <vendor_url>https://github.com/R0h1tAnand/Rufux</vendor_url>
   <icon_name>rufux</icon_name>
-  <action id="org.rufux.pkexec.run">
-    <description>Run Rufux USB Formatting Utility as administrator</description>
-    <message>Authentication is required to format and write to USB flash drives</message>
+  <action id="org.rufux.worker">
+    <description>Write to and format drives with Rufux</description>
+    <message>Authentication is required to erase and write to a drive</message>
     <defaults>
       <allow_any>auth_admin</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>
+      <allow_active>auth_admin</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/bin/rufux</annotate>
-    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">@BINDIR@/rufux</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">--worker</annotate>
   </action>
 </policyconfig>
