@@ -1,0 +1,34 @@
+[package]
+name = "rufux"
+version = "0.1.0"
+edition = "2021"
+authors = ["Rohit Anand <rohit@example.com>"]
+description = "Rufux: The Reliable USB Formatting Utility for Linux (Rufus Linux Port in Rust)"
+license = "GPL-3.0-or-later"
+readme = "README.md"
+repository = "https://github.com/R0h1tAnand/Rufux"
+
+[dependencies]
+eframe = { version = "0.29", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
+egui = "0.29"
+sha2 = "0.10"
+sha1 = "0.10"
+md-5 = "0.10"
+hex = "0.4"
+crossbeam-channel = "0.5"
+nix = { version = "0.29", features = ["fs", "ioctl", "process", "signal", "user"] }
+libc = "0.2"
+regex = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+tempfile = "3.10"
+walkdir = "2.5"
+anyhow = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

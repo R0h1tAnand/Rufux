@@ -1,0 +1,9 @@
+/target
+**/*.rs.bk
+*.log
+rufux.log
+implementation_plan.md
+.idea
+.vscode
+*.swp
+*~
