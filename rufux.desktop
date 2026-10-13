@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Rufux
+GenericName=USB Formatting Utility
+Comment=The Reliable USB Formatting Utility for Linux (Rufus Port)
+Exec=rufux
+Icon=rufux
+Terminal=false
+Type=Application
+Categories=System;Utility;Archiving;
+Keywords=usb;flash;boot;format;iso;rufus;image;
+StartupNotify=true
