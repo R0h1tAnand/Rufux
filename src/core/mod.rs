@@ -1,8 +1,14 @@
 pub mod badblocks;
+pub mod bios_boot;
+pub mod blockdev;
 pub mod device;
 pub mod elevation;
+pub mod exec;
 pub mod hasher;
 pub mod iso_scanner;
+pub mod layout;
+pub mod privilege;
 pub mod uefi_ntfs;
+pub mod worker;
 pub mod writer;
 pub mod wue;
