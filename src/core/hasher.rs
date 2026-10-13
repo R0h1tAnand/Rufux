@@ -1,13 +1,22 @@
 //! Multi-hash computation for MD5, SHA-1, SHA-256, and SHA-512
 //!
-//! Computes checksums simultaneously in a single stream pass with real-time progress.
+//! The file is read once; every chunk is fanned out to one worker thread per algorithm so the
+//! four digests are computed in parallel. The `sha1`/`sha2` crates use the CPU's SHA extensions
+//! when available.
 
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use sha2::{Sha256, Sha512, Digest};
-use sha1::Sha1;
+use std::sync::Arc;
+use std::thread::{self, Scope, ScopedJoinHandle};
+
+use anyhow::Result;
+use crossbeam_channel::{bounded, Sender};
 use md5::Md5;
+use sha1::Sha1;
+use sha2::{Digest, Sha256, Sha512};
+
+const CHUNK: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Default)]
 pub struct ImageHashes {
@@ -17,53 +26,70 @@ pub struct ImageHashes {
     pub sha512: String,
 }
 
+type Chunk = Arc<Vec<u8>>;
+
+fn spawn_hasher<'scope, 'env, D>(
+    scope: &'scope Scope<'scope, 'env>,
+) -> (Sender<Chunk>, ScopedJoinHandle<'scope, String>)
+where
+    D: Digest + Send + 'scope,
+{
+    let (tx, rx) = bounded::<Chunk>(4);
+    let handle = scope.spawn(move || {
+        let mut digest = D::new();
+        for chunk in rx {
+            digest.update(chunk.as_slice());
+        }
+        hex::encode(digest.finalize())
+    });
+    (tx, handle)
+}
+
 /// Compute all 4 hashes simultaneously for a file, reporting progress (0.0 to 1.0)
-pub fn compute_hashes<F>(file_path: &Path, mut progress_callback: F) -> anyhow::Result<ImageHashes>
+pub fn compute_hashes<F>(file_path: &Path, mut progress_callback: F) -> Result<ImageHashes>
 where
     F: FnMut(f32),
 {
     let mut file = File::open(file_path)?;
     let total_size = file.metadata()?.len();
 
-    let mut md5_hasher = Md5::new();
-    let mut sha1_hasher = Sha1::new();
-    let mut sha256_hasher = Sha256::new();
-    let mut sha512_hasher = Sha512::new();
+    thread::scope(|scope| -> Result<ImageHashes> {
+        let (md5_tx, md5) = spawn_hasher::<Md5>(scope);
+        let (sha1_tx, sha1) = spawn_hasher::<Sha1>(scope);
+        let (sha256_tx, sha256) = spawn_hasher::<Sha256>(scope);
+        let (sha512_tx, sha512) = spawn_hasher::<Sha512>(scope);
+        let senders = [md5_tx, sha1_tx, sha256_tx, sha512_tx];
 
-    let mut buffer = vec![0u8; 1024 * 1024]; // 1 MiB read buffer
-    let mut bytes_read_total = 0u64;
+        let mut done = 0u64;
+        loop {
+            let mut buf = vec![0u8; CHUNK];
+            let n = file.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            buf.truncate(n);
+            let chunk = Arc::new(buf);
+            for tx in &senders {
+                // A hasher only stops early if it panicked; the join below reports that.
+                let _ = tx.send(Arc::clone(&chunk));
+            }
 
-    loop {
-        let n = file.read(&mut buffer)?;
-        if n == 0 {
-            break;
+            done += n as u64;
+            if total_size > 0 {
+                progress_callback((done as f32 / total_size as f32).min(1.0));
+            }
         }
+        drop(senders);
 
-        let chunk = &buffer[..n];
-        md5_hasher.update(chunk);
-        sha1_hasher.update(chunk);
-        sha256_hasher.update(chunk);
-        sha512_hasher.update(chunk);
-
-        bytes_read_total += n as u64;
-        if total_size > 0 {
-            let progress = (bytes_read_total as f32 / total_size as f32).min(1.0);
-            progress_callback(progress);
-        }
-    }
-
-    progress_callback(1.0);
-
-    let md5_res = format!("{:x}", md5_hasher.finalize());
-    let sha1_res = format!("{:x}", sha1_hasher.finalize());
-    let sha256_res = format!("{:x}", sha256_hasher.finalize());
-    let sha512_res = format!("{:x}", sha512_hasher.finalize());
-
-    Ok(ImageHashes {
-        md5: md5_res,
-        sha1: sha1_res,
-        sha256: sha256_res,
-        sha512: sha512_res,
+        let join = |h: ScopedJoinHandle<'_, String>| h.join().map_err(|_| anyhow::anyhow!("hash worker panicked"));
+        let hashes = ImageHashes {
+            md5: join(md5)?,
+            sha1: join(sha1)?,
+            sha256: join(sha256)?,
+            sha512: join(sha512)?,
+        };
+        progress_callback(1.0);
+        Ok(hashes)
     })
 }
 
@@ -85,5 +111,16 @@ mod tests {
             hashes.sha256,
             "4cd59ded9fefcc7931209e3270e5a37e8024ce0baa34f617c1a3d84243a441c6"
         );
+        assert_eq!(hashes.sha512.len(), 128);
+    }
+
+    #[test]
+    fn hashes_files_larger_than_one_chunk() {
+        let mut tmp = NamedTempFile::new().unwrap();
+        tmp.write_all(&vec![0xABu8; CHUNK * 2 + 17]).unwrap();
+        let mut last = 0.0;
+        let hashes = compute_hashes(tmp.path(), |p| last = p).unwrap();
+        assert_eq!(last, 1.0);
+        assert_eq!(hashes.sha256.len(), 64);
     }
 }
