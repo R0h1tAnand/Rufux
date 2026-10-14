@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Rufux</title>
+  <defs>
+    <!-- Tile -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#3b2f9e"/>
+      <stop offset="0.55" stop-color="#1a1a5e"/>
+      <stop offset="1" stop-color="#0a0d33"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="0.3" cy="0.12" r="0.9">
+      <stop offset="0" stop-color="#8a7bff" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#5b4be0" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#5b4be0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="floorGlow" cx="0.5" cy="1" r="0.7">
+      <stop offset="0" stop-color="#ff7a45" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff7a45" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="0.4" stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.35"/>
+    </linearGradient>
+
+    <!-- Disc -->
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e9ecff"/>
+      <stop offset="0.2" stop-color="#cfd6ff"/>
+      <stop offset="0.21" stop-color="#2a2f7a"/>
+      <stop offset="0.3" stop-color="#7f8cff"/>
+      <stop offset="0.55" stop-color="#4fd1c5"/>
+      <stop offset="0.8" stop-color="#9b6bff"/>
+      <stop offset="1" stop-color="#e86bd1"/>
+    </radialGradient>
+    <linearGradient id="discSheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.65"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.65" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.4"/>
+    </linearGradient>
+
+    <!-- USB stick -->
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff5e62"/>
+      <stop offset="0.5" stop-color="#ff8f3c"/>
+      <stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <linearGradient id="bodyShade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity="0.35"/>
+      <stop offset="0.3" stop-color="#000" stop-opacity="0"/>
+      <stop offset="0.72" stop-color="#fff" stop-opacity="0.0"/>
+      <stop offset="0.85" stop-color="#fff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="bodyTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.45"/>
+      <stop offset="0.25" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9aa3b8"/>
+      <stop offset="0.18" stop-color="#f4f6fb"/>
+      <stop offset="0.5" stop-color="#c3cadb"/>
+      <stop offset="0.82" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#8790a6"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1c2150"/>
+      <stop offset="0.5" stop-color="#3a3f93"/>
+      <stop offset="1" stop-color="#171a45"/>
+    </linearGradient>
+    <linearGradient id="arrow" gradientUnits="userSpaceOnUse" x1="0" y1="500" x2="0" y2="780">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffe3cf"/>
+    </linearGradient>
+
+    <filter id="blur24" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="24"/></filter>
+    <filter id="blur10" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="blur4" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+
+    <clipPath id="tile"><rect x="64" y="64" width="896" height="896" rx="200"/></clipPath>
+    <clipPath id="bodyClip"><rect x="352" y="400" width="320" height="468" rx="64"/></clipPath>
+  </defs>
+
+  <!-- Drop shadow of the tile -->
+  <rect x="64" y="84" width="896" height="896" rx="200" fill="#000" opacity="0.45" filter="url(#blur24)"/>
+
+  <!-- Tile -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <g clip-path="url(#tile)">
+    <rect x="64" y="64" width="896" height="896" fill="url(#bgGlow)"/>
+    <rect x="64" y="64" width="896" height="896" fill="url(#floorGlow)"/>
+    <!-- faint circuit lines -->
+    <g fill="none" stroke="#9aa0ff" stroke-opacity="0.12" stroke-width="6" stroke-linecap="round">
+      <path d="M120 300h150l50 50h120"/>
+      <path d="M120 380h90l40 40"/>
+      <path d="M904 330h-140l-50 50h-80"/>
+      <path d="M904 420h-80l-40 40"/>
+      <path d="M120 760h120l50-50"/>
+      <path d="M904 740h-110l-50-50"/>
+    </g>
+    <g fill="#9aa0ff" fill-opacity="0.2">
+      <circle cx="320" cy="350" r="9"/><circle cx="250" cy="420" r="9"/>
+      <circle cx="634" cy="380" r="9"/><circle cx="784" cy="460" r="9"/>
+      <circle cx="290" cy="710" r="9"/><circle cx="744" cy="690" r="9"/>
+    </g>
+  </g>
+
+  <!-- Disc behind the stick -->
+  <g transform="translate(670 640)">
+    <ellipse cx="0" cy="170" rx="250" ry="30" fill="#000" opacity="0.45" filter="url(#blur10)"/>
+    <circle r="250" fill="url(#disc)"/>
+    <!-- data tracks -->
+    <g fill="none" stroke="#fff" stroke-opacity="0.18" stroke-width="2">
+      <circle r="120"/><circle r="140"/><circle r="160"/><circle r="180"/><circle r="200"/><circle r="220"/><circle r="238"/>
+    </g>
+    <path d="M0 0 L250 0 A250 250 0 0 0 177 -177 Z" fill="#fff" opacity="0.12"/>
+    <path d="M0 0 L-250 0 A250 250 0 0 0 -177 177 Z" fill="#fff" opacity="0.12"/>
+    <circle r="250" fill="url(#discSheen)"/>
+    <circle r="250" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="3"/>
+    <circle r="62" fill="#14183f"/>
+    <circle r="62" fill="none" stroke="#fff" stroke-opacity="0.4" stroke-width="3"/>
+    <circle r="86" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="2"/>
+  </g>
+
+  <g transform="translate(-80 0)">
+  <!-- Stick shadow -->
+  <ellipse cx="512" cy="884" rx="200" ry="26" fill="#000" opacity="0.5" filter="url(#blur10)"/>
+  <rect x="372" y="420" width="320" height="468" rx="64" fill="#000" opacity="0.35" filter="url(#blur24)"/>
+
+  <!-- USB connector -->
+  <g>
+    <rect x="404" y="150" width="216" height="270" rx="26" fill="url(#metal)"/>
+    <rect x="404" y="150" width="216" height="270" rx="26" fill="none" stroke="#fff" stroke-opacity="0.7" stroke-width="3"/>
+    <rect x="428" y="176" width="168" height="206" rx="14" fill="#2a2f5e" opacity="0.18"/>
+    <!-- port holes -->
+    <rect x="450" y="206" width="48" height="84" rx="12" fill="#10143a"/>
+    <rect x="526" y="206" width="48" height="84" rx="12" fill="#10143a"/>
+    <rect x="450" y="206" width="48" height="84" rx="12" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="2"/>
+    <rect x="526" y="206" width="48" height="84" rx="12" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="2"/>
+    <!-- contacts -->
+    <rect x="446" y="330" width="132" height="14" rx="7" fill="#7b84a0" opacity="0.5"/>
+  </g>
+
+  <!-- Cap collar -->
+  <rect x="380" y="380" width="264" height="52" rx="18" fill="url(#cap)"/>
+  <rect x="380" y="380" width="264" height="52" rx="18" fill="none" stroke="#fff" stroke-opacity="0.25" stroke-width="2"/>
+
+  <!-- Stick body -->
+  <rect x="352" y="400" width="320" height="468" rx="64" fill="url(#body)"/>
+  <g clip-path="url(#bodyClip)">
+    <rect x="352" y="400" width="320" height="468" fill="url(#bodyShade)"/>
+    <rect x="352" y="400" width="320" height="468" fill="url(#bodyTop)"/>
+    <!-- grip ridges -->
+    <g stroke="#7a1f1f" stroke-opacity="0.22" stroke-width="8" stroke-linecap="round">
+      <path d="M392 812h240"/><path d="M392 836h240"/>
+    </g>
+    <!-- gloss -->
+    <path d="M352 400h140c-40 120-60 280-60 468H352z" fill="#fff" opacity="0.12"/>
+  </g>
+  <rect x="352" y="400" width="320" height="468" rx="64" fill="none" stroke="url(#rim)" stroke-width="5"/>
+
+  <!-- LED -->
+  <circle cx="620" cy="452" r="12" fill="#7dffb2"/>
+  <circle cx="620" cy="452" r="26" fill="#7dffb2" opacity="0.55" filter="url(#blur4)"/>
+
+  <!-- Write arrow cut-out -->
+  <g>
+    <path d="M512 512v168" stroke="#7a1f1f" stroke-opacity="0.35" stroke-width="64" stroke-linecap="round" transform="translate(0 8)" filter="url(#blur4)"/>
+    <path d="M512 520v156" stroke="url(#arrow)" stroke-width="58" stroke-linecap="round"/>
+    <path d="M440 650l72 78 72-78" fill="none" stroke="url(#arrow)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M430 760h164" stroke="url(#arrow)" stroke-width="30" stroke-linecap="round" opacity="0.9"/>
+  </g>
+
+  </g>
+
+  <!-- Tile edge highlight -->
+  <rect x="66" y="66" width="892" height="892" rx="198" fill="none" stroke="url(#rim)" stroke-width="4"/>
+</svg>

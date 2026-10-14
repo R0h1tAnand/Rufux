@@ -42,6 +42,7 @@ const NO_DRIVE: &str = "No drive detected";
 
 pub fn run() -> glib::ExitCode {
     let app = adw::Application::builder().application_id(APP_ID).build();
+    app.connect_startup(|_| gtk::Window::set_default_icon_name("rufux"));
     app.connect_activate(|app| {
         if let Some(win) = app.active_window() {
             win.present();

@@ -146,11 +146,13 @@ install_files() {
     as_root install -m 644 "$policy_tmp" "$DESTDIR$DATADIR/polkit-1/actions/org.rufux.policy"
     rm -f "$policy_tmp"
 
-    for size in 48 128 256; do
+    for size in 16 24 32 48 64 128 256 512; do
         as_root install -d "$DESTDIR$DATADIR/icons/hicolor/${size}x${size}/apps"
-        as_root install -m 644 "$SRC/assets/icons/rufus-$size.png" \
+        as_root install -m 644 "$SRC/assets/icons/rufux-$size.png" \
             "$DESTDIR$DATADIR/icons/hicolor/${size}x${size}/apps/rufux.png"
     done
+    as_root install -d "$DESTDIR$DATADIR/icons/hicolor/scalable/apps"
+    as_root install -m 644 "$SRC/assets/icons/rufux.svg" "$DESTDIR$DATADIR/icons/hicolor/scalable/apps/rufux.svg"
 
     [ -n "$DESTDIR" ] || {
         have update-desktop-database && as_root update-desktop-database "$DATADIR/applications" 2>/dev/null || true
@@ -163,9 +165,10 @@ uninstall_files() {
     as_root rm -f "$DESTDIR$PREFIX/bin/rufux" \
         "$DESTDIR$DATADIR/applications/rufux.desktop" \
         "$DESTDIR$DATADIR/polkit-1/actions/org.rufux.policy"
-    for size in 48 128 256; do
+    for size in 16 24 32 48 64 128 256 512; do
         as_root rm -f "$DESTDIR$DATADIR/icons/hicolor/${size}x${size}/apps/rufux.png"
     done
+    as_root rm -f "$DESTDIR$DATADIR/icons/hicolor/scalable/apps/rufux.svg"
     say "Rufux has been removed"
 }
 
