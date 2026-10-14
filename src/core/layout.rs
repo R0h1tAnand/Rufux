@@ -261,6 +261,54 @@ pub fn plan_partitions(disk_bytes: u64, scheme: PartitionScheme, layout: Layout)
     Ok(parts)
 }
 
+/// First sector used for the data partition by the old-BIOS fix: the classic CHS-aligned start
+/// (one track of 63 sectors) that legacy BIOSes and DOS-era boot code expect.
+pub const LEGACY_FIRST_SECTOR: u64 = 63;
+
+/// Arguments for `parted` (program name excluded) that create the planned partition table.
+///
+/// With `legacy_bios` on an MBR disk the first partition starts at sector 63 instead of 1 MiB.
+pub fn parted_args(
+    device: &str,
+    scheme: PartitionScheme,
+    fs: FileSystem,
+    layout: Layout,
+    plan: &[PartitionSpec],
+    legacy_bios: bool,
+) -> Vec<String> {
+    let legacy = legacy_bios && scheme == PartitionScheme::Mbr;
+    let label_type = if scheme == PartitionScheme::Gpt { "gpt" } else { "msdos" };
+
+    let mut args: Vec<String> = vec!["-s".into()];
+    if legacy {
+        // Without this parted would round the 63 s start up to a MiB boundary.
+        args.extend(["-a".into(), "none".into()]);
+    }
+    args.extend([device.to_string(), "mklabel".into(), label_type.into()]);
+
+    for (i, part) in plan.iter().enumerate() {
+        let hint = match (i, layout) {
+            (0, _) => fs.parted_hint(),
+            (_, Layout::UefiNtfs) => "fat16",
+            _ => "ext4",
+        };
+        args.extend(["mkpart", "primary", hint].map(String::from));
+        args.push(if legacy && i == 0 {
+            format!("{LEGACY_FIRST_SECTOR}s")
+        } else {
+            format!("{}MiB", part.start_mib)
+        });
+        args.push(format!("{}MiB", part.end_mib));
+    }
+    if scheme == PartitionScheme::Mbr {
+        args.extend(["set", "1", "boot", "on"].map(String::from));
+    }
+    if layout == Layout::UefiNtfs {
+        args.extend(["set", "2", "esp", "on"].map(String::from));
+    }
+    args
+}
+
 /// Path of the n-th partition node of a whole-disk device (`sdb` -> `sdb1`, `nvme0n1` -> `nvme0n1p1`).
 pub fn partition_path(disk: &str, index: u32) -> String {
     if disk.ends_with(|c: char| c.is_ascii_digit()) {
@@ -306,6 +354,57 @@ mod tests {
         assert_eq!(p[0].end_mib, p[1].start_mib);
         assert!(plan_partitions(GIB, PartitionScheme::Mbr, Layout::Persistence { size_mib: 1020 }).is_err());
         assert!(plan_partitions(8 * MIB, PartitionScheme::Mbr, Layout::Single).is_err());
+    }
+
+    #[test]
+    fn parted_arguments_are_mib_aligned_by_default() {
+        let plan = plan_partitions(8 * GIB, PartitionScheme::Mbr, Layout::Single).unwrap();
+        let a = parted_args(
+            "/dev/sdb",
+            PartitionScheme::Mbr,
+            FileSystem::Fat32,
+            Layout::Single,
+            &plan,
+            false,
+        );
+        assert_eq!(
+            a,
+            [
+                "-s", "/dev/sdb", "mklabel", "msdos", "mkpart", "primary", "fat32", "1MiB", "8192MiB", "set", "1",
+                "boot", "on"
+            ]
+        );
+    }
+
+    #[test]
+    fn legacy_fix_starts_the_first_partition_at_sector_63() {
+        let plan = plan_partitions(8 * GIB, PartitionScheme::Mbr, Layout::UefiNtfs).unwrap();
+        let a = parted_args(
+            "/dev/sdb",
+            PartitionScheme::Mbr,
+            FileSystem::Ntfs,
+            Layout::UefiNtfs,
+            &plan,
+            true,
+        );
+        assert_eq!(&a[..3], ["-s", "-a", "none"]);
+        assert!(a.windows(2).any(|w| w == ["ntfs", "63s"]));
+        // Only the first partition moves; the helper partition keeps its MiB boundary.
+        assert!(a.windows(2).any(|w| w == ["fat16", "8191MiB"]));
+    }
+
+    #[test]
+    fn legacy_fix_is_ignored_on_gpt() {
+        let plan = plan_partitions(8 * GIB, PartitionScheme::Gpt, Layout::Single).unwrap();
+        let a = parted_args(
+            "/dev/sdb",
+            PartitionScheme::Gpt,
+            FileSystem::Fat32,
+            Layout::Single,
+            &plan,
+            true,
+        );
+        assert!(!a.contains(&"-a".to_string()) && !a.contains(&"63s".to_string()));
     }
 
     #[test]

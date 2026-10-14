@@ -73,6 +73,7 @@ struct Ui {
     scheme_row: adw::ComboRow,
     target_row: adw::ComboRow,
     usb_hdd_row: adw::SwitchRow,
+    old_bios_row: adw::SwitchRow,
 
     label_row: adw::EntryRow,
     fs_row: adw::ComboRow,
@@ -139,7 +140,12 @@ impl Ui {
             .subtitle("Also show non-removable external disks")
             .build();
         let advanced_drive = adw::ExpanderRow::builder().title("Advanced drive options").build();
+        let old_bios_row = adw::SwitchRow::builder()
+            .title("Add fixes for old BIOSes")
+            .subtitle("Start the first partition at sector 63 (MBR only)")
+            .build();
         advanced_drive.add_row(&usb_hdd_row);
+        advanced_drive.add_row(&old_bios_row);
 
         let drive_group = adw::PreferencesGroup::builder().title("Drive").build();
         for w in [
@@ -269,6 +275,7 @@ impl Ui {
             scheme_row,
             target_row,
             usb_hdd_row,
+            old_bios_row,
             label_row,
             fs_row,
             cluster_row,
@@ -290,6 +297,7 @@ impl Ui {
             "Running unprivileged; authentication is requested when a drive is written"
         });
         ui.refresh_devices();
+        ui.old_bios_row.set_sensitive(ui.scheme_row.selected() == 0);
         ui
     }
 
@@ -319,6 +327,9 @@ impl Ui {
         });
         on!(self.device_row, connect_selected_notify, |u: &Rc<Self>| u
             .update_persistence_range());
+        on!(self.scheme_row, connect_selected_notify, |u: &Rc<Self>| {
+            u.old_bios_row.set_sensitive(u.scheme_row.selected() == 0)
+        });
         on!(self.usb_hdd_row, connect_active_notify, |u: &Rc<Self>| u
             .refresh_devices());
 
@@ -642,6 +653,7 @@ impl Ui {
             wue_username: username,
             wue_locale: self.locale.clone(),
             extended_label: self.ext_label_row.is_active(),
+            legacy_bios_fixes: self.old_bios_row.is_active(),
         };
         self.log(&format!("Writing {} in {:?} mode", dev.path.display(), mode));
         self.spawn_job(WorkerRequest::Burn(opts));

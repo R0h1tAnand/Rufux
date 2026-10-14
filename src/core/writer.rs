@@ -27,7 +27,8 @@ use super::device::{format_size, open_image, unmount_all, validate_target, Image
 use super::exec::{self, check_cancel, Canceled};
 use super::iso_scanner::{scan_image, ImageType, IsoReport, PersistenceKind};
 use super::layout::{
-    mkfs_args, partition_path, plan_partitions, sanitize_label, FileSystem, Layout, PartitionScheme, TargetSystem, MIB,
+    mkfs_args, parted_args, partition_path, plan_partitions, sanitize_label, FileSystem, Layout, PartitionScheme,
+    TargetSystem, MIB,
 };
 use super::privilege::with_invoking_user;
 use super::uefi_ntfs::write_uefi_ntfs;
@@ -62,6 +63,9 @@ pub struct BurnOptions {
     /// Write `autorun.inf` and an icon so file managers show the volume label and icon.
     #[serde(default)]
     pub extended_label: bool,
+    /// Start the first MBR partition at sector 63, as old BIOSes expect.
+    #[serde(default)]
+    pub legacy_bios_fixes: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -498,25 +502,11 @@ fn run_iso(
     zero_disk_edges(target).context("cannot erase the old partition table")?;
     run.check()?;
 
-    let label_type = if scheme == PartitionScheme::Gpt { "gpt" } else { "msdos" };
     run.stage(0.08, format!("Creating {} partition table...", scheme));
-    let mut args: Vec<String> = vec!["-s".into(), dev.clone(), "mklabel".into(), label_type.into()];
-    for (i, part) in plan.iter().enumerate() {
-        let hint = match (i, layout) {
-            (0, _) => fs_kind.parted_hint(),
-            (_, Layout::UefiNtfs) => "fat16",
-            _ => "ext4",
-        };
-        args.extend(["mkpart", "primary", hint].map(String::from));
-        args.push(format!("{}MiB", part.start_mib));
-        args.push(format!("{}MiB", part.end_mib));
+    if opts.legacy_bios_fixes && scheme == PartitionScheme::Mbr {
+        run.log("Aligning the first partition to sector 63 for old BIOSes");
     }
-    if scheme == PartitionScheme::Mbr {
-        args.extend(["set", "1", "boot", "on"].map(String::from));
-    }
-    if layout == Layout::UefiNtfs {
-        args.extend(["set", "2", "esp", "on"].map(String::from));
-    }
+    let args = parted_args(&dev, scheme, fs_kind, layout, &plan, opts.legacy_bios_fixes);
     run.log(format!("parted {}", args.join(" ")));
     exec::run("parted", &args)?;
 
@@ -678,6 +668,7 @@ mod tests {
             wue_username: String::new(),
             wue_locale: "en-US".into(),
             extended_label: false,
+            legacy_bios_fixes: false,
         }
     }
 
