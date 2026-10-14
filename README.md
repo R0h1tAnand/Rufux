@@ -15,7 +15,11 @@ Create bootable USB drives from ISO and disk images with a familiar interface an
 - **Two write modes**
   - *ISO mode*: partitions the drive (MBR or GPT), formats it (FAT32, NTFS, exFAT, ext4) and extracts the image onto it.
   - *DD mode*: streams the image to the device block for block with direct I/O.
+- **Boot selection**: write an ISO or disk image, or create a FreeDOS drive, an empty Syslinux 6.x drive, a UEFI:NTFS-only drive or a plain non-bootable drive.
 - **UEFI:NTFS** layout for booting NTFS media on UEFI systems, using the upstream `uefi-ntfs.img` (checksum-pinned).
+- **Runtime UEFI media validation**: for images that ship an `md5sum.txt`, installs the upstream [`uefi-md5sum`](https://github.com/pbatard/uefi-md5sum) loader (checksum-pinned) so the drive verifies itself on every UEFI boot.
+- **Old-BIOS fixes**: starts the first MBR partition at the CHS-aligned sector 63.
+- **Extended label and icon files**: writes `autorun.inf` and an icon so Windows shows the label and icon.
 - **Windows setup customisation**: generates an `autounattend.xml` that can skip the TPM, Secure Boot and RAM checks, skip the online-account requirement, create a local account, and disable BitLocker auto-encryption and telemetry prompts.
 - **Linux persistence**: creates a `casper-rw` (Ubuntu family) or `persistence` (Debian live) partition.
 - **Bad-block check**: multi-pass write and read-back test that bypasses the page cache, to expose counterfeit or failing drives.
@@ -38,7 +42,7 @@ Create bootable USB drives from ISO and disk images with a familiar interface an
 |------|----------|
 | Toolchain | Rust 1.92 or newer ([rustup](https://rustup.rs)) |
 | Required tools | `util-linux` (`lsblk`, `mount`), `parted`, `p7zip`, `dosfstools`, `ntfs-3g`, `exfatprogs`, `e2fsprogs`, `polkit` (`pkexec`) |
-| Optional | `syslinux` (BIOS boot of Linux media), `ms-sys` (BIOS boot of Windows media) |
+| Optional | `syslinux` (BIOS boot of Linux media and the Syslinux boot selection), `ms-sys` (BIOS boot of Windows media and the FreeDOS boot selection) |
 | Interface | GTK 4 and libadwaita 1.5 or newer (`libgtk-4-dev`, `libadwaita-1-dev` to build) |
 
 ## Installation
@@ -145,13 +149,15 @@ Rufux is in early development. The partitioning, formatting and extraction code 
 
 Not implemented yet:
 
-- FreeDOS / MS-DOS boot media, Windows To Go, "extended label and icon files", old-BIOS fixes and runtime UEFI media validation (the options are shown but have no effect).
+- MS-DOS boot media (its files cannot be redistributed) and Windows To Go (it needs a Windows-only BCD/DISM step); neither is offered.
+- Syslinux 4.x; Syslinux boot media uses the version installed on your system.
 - Compressed images (`.gz`, `.xz`); decompress them first.
 - BIOS booting depends on the optional `syslinux` and `ms-sys` tools; without them the drive boots in UEFI mode only.
 
 ## Acknowledgments
 
-- [Pete Batard](https://github.com/pbatard) and the Rufus contributors for the original tool and `uefi-ntfs.img`.
+- [Pete Batard](https://github.com/pbatard) and the Rufus contributors for the original tool, `uefi-ntfs.img` and `uefi-md5sum` (GPL-2.0).
+- The [FreeDOS](https://www.freedos.org) project (provenance of the bundled files in `assets/freedos/readme.txt`).
 - [Rust](https://www.rust-lang.org/) and [GTK 4](https://gtk.org) and [libadwaita](https://gnome.pages.gitlab.gnome.org/libadwaita/).
 
 Rufux is an independent project and is not affiliated with Rufus.
