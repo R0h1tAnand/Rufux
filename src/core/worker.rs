@@ -63,6 +63,7 @@ fn parse_cli(args: &[String]) -> Result<WorkerRequest> {
         wue_locale: wue::detect_locale(),
         extended_label: false,
         legacy_bios_fixes: false,
+        uefi_media_validation: false,
     }))
 }
 

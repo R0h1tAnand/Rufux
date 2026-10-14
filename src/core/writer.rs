@@ -31,6 +31,7 @@ use super::layout::{
     TargetSystem, MIB,
 };
 use super::privilege::with_invoking_user;
+use super::uefi_md5sum;
 use super::uefi_ntfs::write_uefi_ntfs;
 use super::wue::{self, WueOptions};
 
@@ -66,6 +67,9 @@ pub struct BurnOptions {
     /// Start the first MBR partition at sector 63, as old BIOSes expect.
     #[serde(default)]
     pub legacy_bios_fixes: bool,
+    /// Install `uefi-md5sum` so the image verifies its `md5sum.txt` at every UEFI boot.
+    #[serde(default)]
+    pub uefi_media_validation: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -598,6 +602,16 @@ fn run_iso(
         wue::write_answer_file(mounted.path(), xml)?;
     }
 
+    if opts.uefi_media_validation && extracting {
+        match uefi_md5sum::install(mounted.path()) {
+            Ok(uefi_md5sum::Outcome::Installed(archs)) => {
+                run.log(format!("Installed UEFI media validation ({})", archs.join(", ")))
+            }
+            Ok(uefi_md5sum::Outcome::Skipped(why)) => run.log(format!("UEFI media validation not installed: {why}")),
+            Err(e) => bail!("cannot install UEFI media validation: {:#}", e),
+        }
+    }
+
     if opts.extended_label {
         run.stage(0.91, "Writing label and icon files...");
         autorun::write_extended_label(mounted.path(), &label)?;
@@ -669,6 +683,7 @@ mod tests {
             wue_locale: "en-US".into(),
             extended_label: false,
             legacy_bios_fixes: false,
+            uefi_media_validation: false,
         }
     }
 

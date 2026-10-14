@@ -9,6 +9,7 @@ pub mod hasher;
 pub mod iso_scanner;
 pub mod layout;
 pub mod privilege;
+pub mod uefi_md5sum;
 pub mod uefi_ntfs;
 pub mod worker;
 pub mod writer;

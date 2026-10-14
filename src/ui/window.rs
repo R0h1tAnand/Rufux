@@ -74,6 +74,7 @@ struct Ui {
     target_row: adw::ComboRow,
     usb_hdd_row: adw::SwitchRow,
     old_bios_row: adw::SwitchRow,
+    uefi_validation_row: adw::SwitchRow,
 
     label_row: adw::EntryRow,
     fs_row: adw::ComboRow,
@@ -144,7 +145,12 @@ impl Ui {
             .title("Add fixes for old BIOSes")
             .subtitle("Start the first partition at sector 63 (MBR only)")
             .build();
+        let uefi_validation_row = adw::SwitchRow::builder()
+            .title("Enable runtime UEFI media validation")
+            .subtitle("Checks the drive against the image's md5sum.txt on every UEFI boot")
+            .build();
         advanced_drive.add_row(&usb_hdd_row);
+        advanced_drive.add_row(&uefi_validation_row);
         advanced_drive.add_row(&old_bios_row);
 
         let drive_group = adw::PreferencesGroup::builder().title("Drive").build();
@@ -276,6 +282,7 @@ impl Ui {
             target_row,
             usb_hdd_row,
             old_bios_row,
+            uefi_validation_row,
             label_row,
             fs_row,
             cluster_row,
@@ -654,6 +661,7 @@ impl Ui {
             wue_locale: self.locale.clone(),
             extended_label: self.ext_label_row.is_active(),
             legacy_bios_fixes: self.old_bios_row.is_active(),
+            uefi_media_validation: self.uefi_validation_row.is_active(),
         };
         self.log(&format!("Writing {} in {:?} mode", dev.path.display(), mode));
         self.spawn_job(WorkerRequest::Burn(opts));
