@@ -1,3 +1,4 @@
+pub mod autorun;
 pub mod badblocks;
 pub mod bios_boot;
 pub mod blockdev;

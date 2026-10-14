@@ -19,6 +19,7 @@ use anyhow::{anyhow, bail, ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
+use super::autorun;
 use super::badblocks::check_bad_blocks;
 use super::bios_boot::{self, BootStep};
 use super::blockdev::{clear_direct, open_device, read_fill, AlignedBuf, Device, OpenMode};
@@ -58,6 +59,9 @@ pub struct BurnOptions {
     pub wue_options: Option<WueOptions>,
     pub wue_username: String,
     pub wue_locale: String,
+    /// Write `autorun.inf` and an icon so file managers show the volume label and icon.
+    #[serde(default)]
+    pub extended_label: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -556,48 +560,60 @@ fn run_iso(
     }
     run.check()?;
 
-    let Some(image) = image else { return Ok(()) };
-    let seven_zip = seven_zip.expect("resolved above whenever an image is present");
+    let extract = match (image, seven_zip) {
+        (Some(image), Some(seven_zip)) => Some((image, seven_zip)),
+        _ => None,
+    };
+    let extracting = extract.is_some();
+    if !extracting && !opts.extended_label {
+        return Ok(());
+    }
 
-    // ---- extract the image ----
     run.stage(0.18, "Mounting target partition...");
     let mut mounted = Mounted::mount(&part1)?;
     run.log(format!("Mounted {} at {}", part1, mounted.path().display()));
 
-    run.stage(0.20, "Extracting ISO files...");
-    let args = [
-        "x".into(),
-        "-y".into(),
-        "-aoa".into(),
-        "-bsp1".into(),
-        "-bso0".into(),
-        format!("-o{}", mounted.path().display()),
-        "--".into(),
-        image.proc_path().to_string_lossy().into_owned(),
-    ];
-    let (lo, hi) = (run.lo, run.hi);
-    let emit = &mut *run.emit;
-    exec::run_streaming(&seven_zip, args, run.cancel, |line| {
-        if let Some(fraction) = parse_percent(line) {
-            emit(BurnProgress::Status(format!(
-                "Extracting ISO files... {:.0}%",
-                fraction * 100.0
-            )));
-            let overall = 0.20 + fraction * 0.68;
-            emit(BurnProgress::Progress {
-                percent: lo + overall * (hi - lo),
-                speed_mb_s: 0.0,
-            });
-        }
-    })
-    .context("extracting the image failed")?;
+    if let Some((image, seven_zip)) = extract {
+        run.stage(0.20, "Extracting ISO files...");
+        let args = [
+            "x".into(),
+            "-y".into(),
+            "-aoa".into(),
+            "-bsp1".into(),
+            "-bso0".into(),
+            format!("-o{}", mounted.path().display()),
+            "--".into(),
+            image.proc_path().to_string_lossy().into_owned(),
+        ];
+        let (lo, hi) = (run.lo, run.hi);
+        let emit = &mut *run.emit;
+        exec::run_streaming(&seven_zip, args, run.cancel, |line| {
+            if let Some(fraction) = parse_percent(line) {
+                emit(BurnProgress::Status(format!(
+                    "Extracting ISO files... {:.0}%",
+                    fraction * 100.0
+                )));
+                let overall = 0.20 + fraction * 0.68;
+                emit(BurnProgress::Progress {
+                    percent: lo + overall * (hi - lo),
+                    speed_mb_s: 0.0,
+                });
+            }
+        })
+        .context("extracting the image failed")?;
+    }
 
     if let Some(xml) = wue_xml {
         run.stage(0.90, "Applying Windows User Experience customizations...");
         wue::write_answer_file(mounted.path(), xml)?;
     }
 
-    let boot_step = if scheme == PartitionScheme::Mbr {
+    if opts.extended_label {
+        run.stage(0.91, "Writing label and icon files...");
+        autorun::write_extended_label(mounted.path(), &label)?;
+    }
+
+    let boot_step = if scheme == PartitionScheme::Mbr && extracting {
         run.stage(0.92, "Preparing BIOS boot files...");
         bios_boot::prepare_files(mounted.path(), report, fs_kind).unwrap_or_else(|e| {
             run.log(format!("Warning: BIOS boot preparation failed: {:#}", e));
@@ -661,6 +677,7 @@ mod tests {
             wue_options: None,
             wue_username: String::new(),
             wue_locale: "en-US".into(),
+            extended_label: false,
         }
     }
 

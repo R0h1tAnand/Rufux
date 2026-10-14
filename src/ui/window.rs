@@ -78,6 +78,7 @@ struct Ui {
     fs_row: adw::ComboRow,
     cluster_row: adw::ComboRow,
     quick_row: adw::SwitchRow,
+    ext_label_row: adw::SwitchRow,
     badblocks_row: adw::SwitchRow,
     passes_row: adw::ComboRow,
 
@@ -157,6 +158,11 @@ impl Ui {
         let fs_row = combo("File system", &FILE_SYSTEM_NAMES, 0);
         let cluster_row = combo("Cluster size", &CLUSTER_NAMES, 0);
         let quick_row = adw::SwitchRow::builder().title("Quick format").active(true).build();
+        let ext_label_row = adw::SwitchRow::builder()
+            .title("Create extended label and icon files")
+            .subtitle("Adds autorun.inf so Windows shows the label and an icon")
+            .active(true)
+            .build();
         let badblocks_row = adw::SwitchRow::builder()
             .title("Check device for bad blocks")
             .subtitle("Write and read-back test; slow, but exposes fake or failing drives")
@@ -267,6 +273,7 @@ impl Ui {
             fs_row,
             cluster_row,
             quick_row,
+            ext_label_row,
             badblocks_row,
             passes_row,
             status,
@@ -634,6 +641,7 @@ impl Ui {
             wue_options: is_windows.then_some(wue),
             wue_username: username,
             wue_locale: self.locale.clone(),
+            extended_label: self.ext_label_row.is_active(),
         };
         self.log(&format!("Writing {} in {:?} mode", dev.path.display(), mode));
         self.spawn_job(WorkerRequest::Burn(opts));

@@ -61,6 +61,7 @@ fn parse_cli(args: &[String]) -> Result<WorkerRequest> {
         wue_options: None,
         wue_username: String::new(),
         wue_locale: wue::detect_locale(),
+        extended_label: false,
     }))
 }
 
