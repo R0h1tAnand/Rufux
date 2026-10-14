@@ -69,21 +69,19 @@ install_packages() {
         polkit_pkg="pkexec"
         apt-cache show pkexec >/dev/null 2>&1 || polkit_pkg="policykit-1"
         as_root apt-get install -y build-essential pkg-config curl git parted dosfstools ntfs-3g \
-            exfatprogs e2fsprogs p7zip-full zenity "$polkit_pkg" udev util-linux \
-            libxkbcommon-dev libwayland-dev libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxrandr-dev
+            exfatprogs e2fsprogs p7zip-full "$polkit_pkg" udev util-linux \
+            libgtk-4-dev libadwaita-1-dev
     elif have dnf; then
         as_root dnf install -y gcc pkgconf curl git parted dosfstools ntfs-3g exfatprogs e2fsprogs \
-            p7zip p7zip-plugins zenity polkit util-linux libxkbcommon-devel wayland-devel \
-            mesa-libGL-devel libX11-devel libXcursor-devel libXi-devel libXrandr-devel
+            p7zip p7zip-plugins polkit util-linux gtk4-devel libadwaita-devel
     elif have pacman; then
         as_root pacman -S --needed --noconfirm base-devel curl git parted dosfstools ntfs-3g exfatprogs \
-            e2fsprogs p7zip zenity polkit util-linux libxkbcommon wayland libglvnd libx11 libxcursor libxi libxrandr
+            e2fsprogs p7zip polkit util-linux gtk4 libadwaita
     elif have zypper; then
         as_root zypper --non-interactive install gcc pkg-config curl git parted dosfstools ntfs-3g \
-            exfatprogs e2fsprogs 7zip zenity polkit util-linux libxkbcommon-devel wayland-devel \
-            Mesa-libGL-devel libX11-devel
+            exfatprogs e2fsprogs 7zip polkit util-linux gtk4-devel libadwaita-devel
     else
-        warn "unsupported package manager; install parted, dosfstools, ntfs-3g, exfatprogs, p7zip, zenity and polkit manually"
+        warn "unsupported package manager; install parted, dosfstools, ntfs-3g, exfatprogs, p7zip, polkit, GTK 4 and libadwaita (1.5+) manually"
     fi
 }
 

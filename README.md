@@ -37,9 +37,9 @@ Create bootable USB drives from ISO and disk images with a familiar interface an
 | Type | Packages |
 |------|----------|
 | Toolchain | Rust 1.92 or newer ([rustup](https://rustup.rs)) |
-| Required tools | `util-linux` (`lsblk`, `mount`), `parted`, `p7zip`, `dosfstools`, `ntfs-3g`, `exfatprogs`, `e2fsprogs`, `polkit` (`pkexec`), `zenity` or `kdialog` |
+| Required tools | `util-linux` (`lsblk`, `mount`), `parted`, `p7zip`, `dosfstools`, `ntfs-3g`, `exfatprogs`, `e2fsprogs`, `polkit` (`pkexec`) |
 | Optional | `syslinux` (BIOS boot of Linux media), `ms-sys` (BIOS boot of Windows media) |
-| Graphics | OpenGL and X11 or Wayland |
+| Interface | GTK 4 and libadwaita 1.5 or newer (`libgtk-4-dev`, `libadwaita-1-dev` to build) |
 
 ## Installation
 
@@ -133,7 +133,7 @@ make run       # run a release build
 src/
 ├── main.rs        entry point
 ├── core/          devices and safety checks, ISO scanner, writer, hashing, WUE, UEFI:NTFS, worker
-└── ui/            egui application and dialogs
+└── ui/            GTK4 / libadwaita window and dialogs
 assets/            icons and FreeDOS files
 ```
 
@@ -152,7 +152,7 @@ Not implemented yet:
 ## Acknowledgments
 
 - [Pete Batard](https://github.com/pbatard) and the Rufus contributors for the original tool and `uefi-ntfs.img`.
-- [Rust](https://www.rust-lang.org/) and [egui](https://github.com/emilk/egui).
+- [Rust](https://www.rust-lang.org/) and [GTK 4](https://gtk.org) and [libadwaita](https://gnome.pages.gitlab.gnome.org/libadwaita/).
 
 Rufux is an independent project and is not affiliated with Rufus.
 
