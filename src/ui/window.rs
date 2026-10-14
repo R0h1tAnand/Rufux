@@ -198,6 +198,7 @@ impl Ui {
             .build();
         status.add_css_class("heading");
         let progress = gtk::ProgressBar::new();
+        progress.set_visible(false);
         let start_btn = gtk::Button::with_label("Start");
         start_btn.add_css_class("suggested-action");
         start_btn.add_css_class("pill");
@@ -666,6 +667,7 @@ impl Ui {
         self.set_busy(true);
         self.progress.set_fraction(0.0);
         self.progress.set_show_text(false);
+        self.progress.set_visible(true);
         self.set_status("Waiting for authorization…", false);
 
         thread::spawn(move || {
@@ -709,6 +711,7 @@ impl Ui {
     }
 
     fn job_ended(&self) -> glib::ControlFlow {
+        self.progress.set_visible(false);
         self.set_busy(false);
         self.refresh_devices();
         glib::ControlFlow::Break
