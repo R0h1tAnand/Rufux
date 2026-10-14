@@ -25,6 +25,7 @@ use super::bios_boot::{self, BootStep};
 use super::blockdev::{clear_direct, open_device, read_fill, AlignedBuf, Device, OpenMode};
 use super::device::{format_size, open_image, unmount_all, validate_target, ImageFile, TargetDevice};
 use super::exec::{self, check_cancel, Canceled};
+use super::freedos;
 use super::iso_scanner::{scan_image, ImageType, IsoReport, PersistenceKind};
 use super::layout::{
     mkfs_args, parted_args, partition_path, plan_partitions, sanitize_label, FileSystem, Layout, PartitionScheme,
@@ -39,6 +40,48 @@ use super::wue::{self, WueOptions};
 pub enum BurnMode {
     IsoMode,
     DdMode,
+}
+
+/// What the drive should boot, chosen in "Boot selection".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum BootKind {
+    /// Write the selected disk or ISO image.
+    #[default]
+    Image,
+    /// Format only; the drive is not made bootable.
+    NonBootable,
+    /// An embedded FreeDOS system on FAT32 (BIOS, MBR).
+    FreeDos,
+    /// An empty Syslinux boot loader on FAT32 (BIOS, MBR).
+    Syslinux,
+    /// The UEFI:NTFS helper only, so files copied later can boot from NTFS or exFAT.
+    UefiNtfs,
+}
+
+impl BootKind {
+    /// Checks that the rest of the options can produce this kind of drive.
+    pub fn validate(self, opts: &BurnOptions) -> Result<()> {
+        let fat32_mbr = || {
+            ensure!(
+                opts.file_system == FileSystem::Fat32 && opts.partition_scheme == PartitionScheme::Mbr,
+                "this boot selection needs the MBR partition scheme and the FAT32 file system"
+            );
+            Ok(())
+        };
+        match self {
+            Self::Image => Ok(()),
+            _ if opts.burn_mode == BurnMode::DdMode => bail!("this boot selection cannot be used in DD mode"),
+            Self::NonBootable => Ok(()),
+            Self::FreeDos | Self::Syslinux => fat32_mbr(),
+            Self::UefiNtfs => {
+                ensure!(
+                    matches!(opts.file_system, FileSystem::Ntfs | FileSystem::ExFat),
+                    "UEFI:NTFS needs the NTFS or exFAT file system"
+                );
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +113,8 @@ pub struct BurnOptions {
     /// Install `uefi-md5sum` so the image verifies its `md5sum.txt` at every UEFI boot.
     #[serde(default)]
     pub uefi_media_validation: bool,
+    #[serde(default)]
+    pub boot_kind: BootKind,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,7 +202,9 @@ where
 
 fn run_burn(run: &mut Run, opts: &BurnOptions, iso_report: Option<&IsoReport>) -> Result<()> {
     let target = validate_target(&opts.device_path, opts.allow_fixed_drives)?;
-    let image = opts.image_path.as_deref().map(|p| open_image(p, &target)).transpose()?;
+    opts.boot_kind.validate(opts)?;
+    let image_path = opts.image_path.as_deref().filter(|_| opts.boot_kind == BootKind::Image);
+    let image = image_path.map(|p| open_image(p, &target)).transpose()?;
 
     run.log(format!(
         "Starting operation on {} ({})",
@@ -443,9 +490,16 @@ fn run_iso(
         None => None,
     };
 
-    let use_uefi_ntfs = image.is_some()
-        && matches!(fs_kind, FileSystem::Ntfs | FileSystem::ExFat)
-        && report.is_none_or(|r| r.is_efi_bootable);
+    match opts.boot_kind {
+        BootKind::FreeDos => exec::require_tools(&["ms-sys"])?,
+        BootKind::Syslinux => exec::require_tools(&["syslinux"])?,
+        _ => {}
+    }
+
+    let use_uefi_ntfs = opts.boot_kind == BootKind::UefiNtfs
+        || (image.is_some()
+            && matches!(fs_kind, FileSystem::Ntfs | FileSystem::ExFat)
+            && report.is_none_or(|r| r.is_efi_bootable));
 
     let persistence: Option<PersistenceKind> = if opts.persistence_size_mb > 0 {
         let kind = report
@@ -521,7 +575,8 @@ fn run_iso(
     }
     run.check()?;
 
-    if scheme == PartitionScheme::Mbr && image.is_some() {
+    let bios_files = matches!(opts.boot_kind, BootKind::FreeDos | BootKind::Syslinux);
+    if scheme == PartitionScheme::Mbr && (image.is_some() || bios_files) {
         match bios_boot::install_mbr_code(target) {
             Ok(true) => run.log("Installed MBR boot code"),
             Ok(false) => run.log("Warning: no syslinux MBR boot code found; BIOS booting may not work"),
@@ -559,7 +614,7 @@ fn run_iso(
         _ => None,
     };
     let extracting = extract.is_some();
-    if !extracting && !opts.extended_label {
+    if !extracting && !bios_files && !opts.extended_label {
         return Ok(());
     }
 
@@ -617,7 +672,23 @@ fn run_iso(
         autorun::write_extended_label(mounted.path(), &label)?;
     }
 
-    let boot_step = if scheme == PartitionScheme::Mbr && extracting {
+    let mut boot_step = BootStep::None;
+    match opts.boot_kind {
+        BootKind::FreeDos => {
+            run.stage(0.90, "Copying FreeDOS files...");
+            freedos::install(mounted.path())?;
+            boot_step = BootStep::FreeDosBootRecord;
+        }
+        BootKind::Syslinux => {
+            run.stage(0.90, "Preparing Syslinux...");
+            boot_step = bios_boot::prepare_bare_syslinux(mounted.path())?;
+        }
+        _ => {}
+    }
+
+    let boot_step = if boot_step != BootStep::None {
+        boot_step
+    } else if scheme == PartitionScheme::Mbr && extracting {
         run.stage(0.92, "Preparing BIOS boot files...");
         bios_boot::prepare_files(mounted.path(), report, fs_kind).unwrap_or_else(|e| {
             run.log(format!("Warning: BIOS boot preparation failed: {:#}", e));
@@ -684,7 +755,47 @@ mod tests {
             extended_label: false,
             legacy_bios_fixes: false,
             uefi_media_validation: false,
+            boot_kind: BootKind::Image,
         }
+    }
+
+    #[test]
+    fn boot_kinds_enforce_their_requirements() {
+        let mut o = options_for("/dev/sdb");
+        assert!(BootKind::Image.validate(&o).is_ok());
+        assert!(BootKind::NonBootable.validate(&o).is_ok());
+
+        // GPT + FAT32 (the test default) cannot hold a FreeDOS or Syslinux BIOS boot record.
+        assert!(BootKind::FreeDos.validate(&o).is_err());
+        o.partition_scheme = PartitionScheme::Mbr;
+        assert!(BootKind::FreeDos.validate(&o).is_ok());
+        assert!(BootKind::Syslinux.validate(&o).is_ok());
+        o.file_system = FileSystem::Ntfs;
+        assert!(BootKind::Syslinux.validate(&o).is_err());
+
+        assert!(BootKind::UefiNtfs.validate(&o).is_ok());
+        o.file_system = FileSystem::Ext4;
+        assert!(BootKind::UefiNtfs.validate(&o).is_err());
+
+        o.burn_mode = BurnMode::DdMode;
+        assert!(BootKind::NonBootable.validate(&o).is_err());
+    }
+
+    #[test]
+    fn old_requests_without_the_new_fields_still_parse() {
+        let json = serde_json::to_value(options_for("/dev/sdb")).unwrap();
+        let mut obj = json.as_object().unwrap().clone();
+        for k in [
+            "extended_label",
+            "legacy_bios_fixes",
+            "uefi_media_validation",
+            "boot_kind",
+        ] {
+            obj.remove(k);
+        }
+        let parsed: BurnOptions = serde_json::from_value(obj.into()).unwrap();
+        assert_eq!(parsed.boot_kind, BootKind::Image);
+        assert!(!parsed.extended_label);
     }
 
     #[test]

@@ -20,7 +20,7 @@ use crate::core::elevation::{is_root, run_job, WorkerRequest};
 use crate::core::hasher::{compute_hashes, ImageHashes};
 use crate::core::iso_scanner::{scan_image, ImageType, IsoReport};
 use crate::core::layout::{FileSystem, PartitionScheme, TargetSystem, MIB};
-use crate::core::writer::{BurnMode, BurnOptions, BurnProgress};
+use crate::core::writer::{BootKind, BurnMode, BurnOptions, BurnProgress};
 use crate::core::wue::{detect_locale, WueOptions};
 
 use super::dialogs::{self, HashDialog};
@@ -31,6 +31,13 @@ const FILE_SYSTEM_NAMES: [&str; 4] = ["FAT32 (default)", "NTFS", "exFAT", "ext4"
 const CLUSTER_SIZES: [Option<u32>; 5] = [None, Some(8192), Some(16384), Some(32768), Some(65536)];
 const CLUSTER_NAMES: [&str; 5] = ["Default", "8 KiB", "16 KiB", "32 KiB", "64 KiB"];
 const PASS_NAMES: [&str; 4] = ["1 pass", "2 passes", "3 passes", "4 passes"];
+const BOOT_KINDS: [(BootKind, &str); 5] = [
+    (BootKind::Image, "Disk or ISO image"),
+    (BootKind::FreeDos, "FreeDOS"),
+    (BootKind::Syslinux, "Syslinux 6.x"),
+    (BootKind::UefiNtfs, "UEFI:NTFS"),
+    (BootKind::NonBootable, "Non bootable"),
+];
 const NO_DRIVE: &str = "No drive detected";
 
 pub fn run() -> glib::ExitCode {
@@ -65,6 +72,7 @@ struct Ui {
 
     device_row: adw::ComboRow,
     device_model: gtk::StringList,
+    boot_row: adw::ComboRow,
     image_row: adw::ActionRow,
     select_btn: gtk::Button,
     hash_btn: gtk::Button,
@@ -115,6 +123,9 @@ impl Ui {
         let dump_btn = icon_button("document-save-symbolic", "Save the drive to an image file");
         device_row.add_suffix(&dump_btn);
 
+        let boot_names: Vec<&str> = BOOT_KINDS.iter().map(|(_, n)| *n).collect();
+        let boot_row = combo("Boot selection", &boot_names, 0);
+
         let image_row = adw::ActionRow::builder()
             .title("Boot image")
             .subtitle("Choose an ISO or disk image, or drop one here")
@@ -156,6 +167,7 @@ impl Ui {
         let drive_group = adw::PreferencesGroup::builder().title("Drive").build();
         for w in [
             device_row.upcast_ref::<gtk::Widget>(),
+            boot_row.upcast_ref(),
             image_row.upcast_ref(),
             persistence_row.upcast_ref(),
             scheme_row.upcast_ref(),
@@ -273,6 +285,7 @@ impl Ui {
             log: gtk::TextBuffer::new(None),
             device_row,
             device_model,
+            boot_row,
             image_row,
             select_btn,
             hash_btn,
@@ -332,6 +345,8 @@ impl Ui {
             u.cancel.store(true, Ordering::Relaxed);
             u.log("Cancellation requested");
         });
+        on!(self.boot_row, connect_selected_notify, |u: &Rc<Self>| u
+            .on_boot_changed());
         on!(self.device_row, connect_selected_notify, |u: &Rc<Self>| u
             .update_persistence_range());
         on!(self.scheme_row, connect_selected_notify, |u: &Rc<Self>| {
@@ -389,22 +404,87 @@ impl Ui {
         self.state.borrow().devices.get(idx).cloned()
     }
 
+    fn boot_kind(&self) -> BootKind {
+        BOOT_KINDS[(self.boot_row.selected() as usize).min(BOOT_KINDS.len() - 1)].0
+    }
+
     fn set_busy(&self, busy: bool) {
         self.state.borrow_mut().busy = busy;
         self.start_btn.set_visible(!busy);
         self.cancel_btn.set_visible(busy);
-        for w in [
+        self.refresh_sensitivity();
+    }
+
+    /// Enables the form while idle, minus the rows the chosen boot selection fixes.
+    fn refresh_sensitivity(&self) {
+        let busy = self.state.borrow().busy;
+        let kind = self.boot_kind();
+        let bios_only = matches!(kind, BootKind::FreeDos | BootKind::Syslinux);
+        let always = [
             self.device_row.upcast_ref::<gtk::Widget>(),
+            self.boot_row.upcast_ref(),
             self.image_row.upcast_ref(),
             self.persistence_row.upcast_ref(),
-            self.scheme_row.upcast_ref(),
             self.target_row.upcast_ref(),
             self.label_row.upcast_ref(),
-            self.fs_row.upcast_ref(),
             self.cluster_row.upcast_ref(),
-        ] {
+        ];
+        for w in always {
             w.set_sensitive(!busy);
         }
+        // FreeDOS and Syslinux only work as MBR + FAT32, so those rows are fixed for them.
+        self.scheme_row.set_sensitive(!busy && !bios_only);
+        self.fs_row.set_sensitive(!busy && !bios_only);
+        self.target_row.set_sensitive(!busy && !bios_only);
+    }
+
+    /// Adjusts the form for the chosen boot selection.
+    fn on_boot_changed(&self) {
+        let kind = self.boot_kind();
+        self.image_row.set_visible(kind == BootKind::Image);
+        let has_persistence = self
+            .state
+            .borrow()
+            .report
+            .as_ref()
+            .is_some_and(|r| r.persistence.is_some());
+        self.persistence_row
+            .set_visible(kind == BootKind::Image && has_persistence);
+        self.hash_btn
+            .set_sensitive(kind == BootKind::Image && self.state.borrow().image.is_some());
+
+        match kind {
+            BootKind::FreeDos | BootKind::Syslinux => {
+                self.scheme_row.set_selected(0);
+                self.target_row.set_selected(0);
+                self.fs_row.set_selected(0);
+            }
+            BootKind::UefiNtfs => {
+                self.scheme_row.set_selected(1);
+                self.target_row.set_selected(1);
+                self.fs_row.set_selected(1);
+            }
+            BootKind::Image => {
+                if let Some(rep) = self.state.borrow().report.as_ref() {
+                    self.apply_recommendation(rep);
+                }
+            }
+            BootKind::NonBootable => {}
+        }
+        self.refresh_sensitivity();
+    }
+
+    fn apply_recommendation(&self, rep: &IsoReport) {
+        self.scheme_row
+            .set_selected(u32::from(rep.recommended_partition_scheme == PartitionScheme::Gpt));
+        self.target_row
+            .set_selected(u32::from(rep.recommended_target_system == TargetSystem::Uefi));
+        self.fs_row.set_selected(
+            FILE_SYSTEMS
+                .iter()
+                .position(|f| *f == rep.recommended_file_system)
+                .unwrap_or(0) as u32,
+        );
     }
 
     fn parent_window(&self) -> &adw::ApplicationWindow {
@@ -474,6 +554,7 @@ impl Ui {
     }
 
     fn set_image(&self, path: PathBuf) {
+        self.boot_row.set_selected(0);
         self.log(&format!("Selected image: {}", path.display()));
         let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
         self.persistence_row.set_value(0.0);
@@ -488,16 +569,7 @@ impl Ui {
                 if !rep.volume_label.is_empty() {
                     self.label_row.set_text(&rep.volume_label);
                 }
-                self.scheme_row
-                    .set_selected(u32::from(rep.recommended_partition_scheme == PartitionScheme::Gpt));
-                self.target_row
-                    .set_selected(u32::from(rep.recommended_target_system == TargetSystem::Uefi));
-                self.fs_row.set_selected(
-                    FILE_SYSTEMS
-                        .iter()
-                        .position(|f| *f == rep.recommended_file_system)
-                        .unwrap_or(0) as u32,
-                );
+                self.apply_recommendation(&rep);
                 self.persistence_row.set_visible(rep.persistence.is_some());
                 self.image_row.set_subtitle(&format!(
                     "{name} · {:?} · {}",
@@ -563,6 +635,17 @@ impl Ui {
             self.set_status("Select a target drive first", true);
             return;
         }
+        let kind = self.boot_kind();
+        if kind != BootKind::Image {
+            let Some(opts) = self.build_options(BurnMode::IsoMode) else {
+                return;
+            };
+            match kind.validate(&opts) {
+                Ok(()) => self.confirm_and_burn(BurnMode::IsoMode),
+                Err(e) => self.set_status(&format!("{e}"), true),
+            }
+            return;
+        }
         let (image_type, hybrid) = {
             let st = self.state.borrow();
             (
@@ -617,18 +700,30 @@ impl Ui {
     }
 
     fn launch_burn(self: &Rc<Self>, mode: BurnMode) {
-        let Some(dev) = self.selected_device() else { return };
+        let Some(opts) = self.build_options(mode) else { return };
+        self.log(&format!(
+            "Writing {} in {:?} mode ({:?})",
+            opts.device_path.display(),
+            mode,
+            opts.boot_kind
+        ));
+        self.spawn_job(WorkerRequest::Burn(opts));
+    }
+
+    fn build_options(&self, mode: BurnMode) -> Option<BurnOptions> {
+        let dev = self.selected_device()?;
+        let kind = self.boot_kind();
         let (image, is_windows, wue, username) = {
             let st = self.state.borrow();
             (
-                st.image.clone(),
-                st.report.as_ref().is_some_and(|r| r.image_type == ImageType::Windows),
+                st.image.clone().filter(|_| kind == BootKind::Image),
+                kind == BootKind::Image && st.report.as_ref().is_some_and(|r| r.image_type == ImageType::Windows),
                 st.wue,
                 st.wue_username.clone(),
             )
         };
-        let opts = BurnOptions {
-            device_path: dev.path.clone(),
+        Some(BurnOptions {
+            device_path: dev.path,
             image_path: image,
             burn_mode: mode,
             partition_scheme: if self.scheme_row.selected() == 0 {
@@ -662,9 +757,8 @@ impl Ui {
             extended_label: self.ext_label_row.is_active(),
             legacy_bios_fixes: self.old_bios_row.is_active(),
             uefi_media_validation: self.uefi_validation_row.is_active(),
-        };
-        self.log(&format!("Writing {} in {:?} mode", dev.path.display(), mode));
-        self.spawn_job(WorkerRequest::Burn(opts));
+            boot_kind: kind,
+        })
     }
 
     fn start_dump(self: &Rc<Self>) {

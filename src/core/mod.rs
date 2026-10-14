@@ -5,6 +5,7 @@ pub mod blockdev;
 pub mod device;
 pub mod elevation;
 pub mod exec;
+pub mod freedos;
 pub mod hasher;
 pub mod iso_scanner;
 pub mod layout;

@@ -64,6 +64,7 @@ fn parse_cli(args: &[String]) -> Result<WorkerRequest> {
         extended_label: false,
         legacy_bios_fixes: false,
         uefi_media_validation: false,
+        boot_kind: Default::default(),
     }))
 }
 
