@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icons/rufux.svg" alt="Rufux icon" width="128"></p>
+
 # Rufux
 
 **A native Linux take on [Rufus](https://github.com/pbatard/rufus), written in Rust.**
